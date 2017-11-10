@@ -31,7 +31,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.ssl.X509HostnameVerifier;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -42,13 +42,13 @@ public class AveksaAdapter implements BridgeAdapter {
     /*----------------------------------------------------------------------------------------------
      * PROPERTIES
      *--------------------------------------------------------------------------------------------*/
-    
+
     /** Defines the adapter display name */
     public static final String NAME = "Aveksa Bridge";
-    
+
     /** Defines the logger */
     protected static final org.slf4j.Logger logger = LoggerFactory.getLogger(AveksaAdapter.class);
-    
+
     /** Adapter version constant. */
     public static String VERSION;
     /** Load the properties version from the version.properties file. */
@@ -62,25 +62,25 @@ public class AveksaAdapter implements BridgeAdapter {
             VERSION = "Unknown";
         }
     }
-    
+
     /** Defines the collection of property names for the adapter */
     public static class Properties {
         public static final String PROPERTY_USERNAME = "Username";
         public static final String PROPERTY_PASSWORD = "Password";
         public static final String PROPERTY_URL = "Aveksa Url";
     }
-    
+
     private final ConfigurablePropertyMap properties = new ConfigurablePropertyMap(
         new ConfigurableProperty(Properties.PROPERTY_USERNAME).setIsRequired(true),
         new ConfigurableProperty(Properties.PROPERTY_PASSWORD).setIsRequired(true).setIsSensitive(true),
         new ConfigurableProperty(Properties.PROPERTY_URL).setIsRequired(true)
     );
-    
+
     private String username;
     private String password;
     private URL url;
     private String token;
-    
+
     /*---------------------------------------------------------------------------------------------
      * SETUP METHODS
      *-------------------------------------------------------------------------------------------*/
@@ -96,27 +96,27 @@ public class AveksaAdapter implements BridgeAdapter {
             throw new BridgeError("Invalid URL: '" + properties.getValue(Properties.PROPERTY_URL) + "' is a malformed URL.", e);
         }
     }
-    
+
     @Override
     public String getName() {
         return NAME;
     }
-    
+
     @Override
     public String getVersion() {
         return VERSION;
     }
-    
+
     @Override
     public void setProperties(Map<String,String> parameters) {
         properties.setValues(parameters);
     }
-    
+
     @Override
     public ConfigurablePropertyMap getProperties() {
         return properties;
     }
-    
+
     /*---------------------------------------------------------------------------------------------
      * IMPLEMENTATION METHODS
      *-------------------------------------------------------------------------------------------*/
@@ -125,9 +125,9 @@ public class AveksaAdapter implements BridgeAdapter {
     public Count count(BridgeRequest request) throws BridgeError {
         AveksaQualificationParser parser = new AveksaQualificationParser();
         String filterParameters = parser.parse(request.getQuery(),request.getParameters());
-        
+
         String command = "find" + request.getStructure();
-        
+
         StringBuilder getUrl = new StringBuilder();
         getUrl.append(this.url.toString());
         getUrl.append("/aveksa/command.submit?cmd=");
@@ -137,19 +137,19 @@ public class AveksaAdapter implements BridgeAdapter {
             getUrl.append("&").append(filterParameters);
         }
         // Possibly add sorting and possibly pagination data later on
-        
+
 //        // Getting a different httpClient that will work with all SSL Certificates (for use in dev environments)
-//        DefaultHttpClient client;
+//        HttpClient client;
 //        try {
 //            client = getTestingHttpClient();
 //        } catch (Exception e) {
 //            throw new BridgeError(e);
 //        }
-        HttpClient client = new DefaultHttpClient();
+        HttpClient client = HttpClients.createDefault();
         System.out.println(getUrl.toString() + "&" + this.token);
         logger.debug(getUrl.toString() + "&" + this.token);
         HttpGet get = new HttpGet(getUrl.toString() + "&" + this.token);
-        
+
         String output = "";
         HttpResponse response;
         try {
@@ -160,20 +160,20 @@ public class AveksaAdapter implements BridgeAdapter {
                 this.token = authenticate(this.url.toString(),this.username,this.password);
                 HttpGet secondGet = new HttpGet(getUrl.toString() + "&" + this.token);
                 response = client.execute(secondGet);
-            } 
+            }
             output = EntityUtils.toString(response.getEntity());
         } catch (Exception e) {
             throw new BridgeError(e);
         }
-        
-        // If the response threw a 404 error with the command name as the reason,, 
+
+        // If the response threw a 404 error with the command name as the reason,,
         // throw and notify the user of the bad structure.
         if (response.getStatusLine().getStatusCode() == 404) {
             if (response.getStatusLine().getReasonPhrase().equals(command)) {
                 throw new BridgeError("Invalid Structure: '" + request.getStructure() + "' is not a valid structure because '" + command + "' is not a valid Aveksa information command.");
             }
-        } 
-        
+        }
+
         JSONObject jsonObj = (JSONObject)JSONValue.parse(output);
         JSONArray structureList = (JSONArray)jsonObj.get(command);
 
@@ -186,10 +186,10 @@ public class AveksaAdapter implements BridgeAdapter {
         AveksaQualificationParser parser = new AveksaQualificationParser();
         String filterParameters = parser.parse(request.getQuery(),request.getParameters());
         List<String> fields = request.getFields();
-        
+
         String returnColumns = request.getFieldString();
         String command = "find" + request.getStructure();
-        
+
         StringBuilder getUrl = new StringBuilder();
         getUrl.append(this.url.toString());
         getUrl.append("/aveksa/command.submit?cmd=");
@@ -201,17 +201,17 @@ public class AveksaAdapter implements BridgeAdapter {
         }
         // Possibly add sorting and possibly pagination data later on
         getUrl.append("&").append(this.token);
-        
+
 //        //Getting a different httpClient that will work with all SSL Certificates (for use in dev environments)
-//        DefaultHttpClient client;
+//        HttpClient client;
 //        try {
 //            client = getTestingHttpClient();
 //        } catch (Exception e) {
 //            throw new BridgeError(e);
 //        }
-        HttpClient client = new DefaultHttpClient();
+        HttpClient client = HttpClients.createDefault();
         HttpGet get = new HttpGet(getUrl.toString());
-        
+
         String output = "";
         HttpResponse response;
         try {
@@ -222,20 +222,20 @@ public class AveksaAdapter implements BridgeAdapter {
                 this.token = authenticate(this.url.toString(),this.username,this.password);
                 HttpGet secondGet = new HttpGet(getUrl.toString() + "&" + this.token);
                 response = client.execute(secondGet);
-            } 
+            }
             output = EntityUtils.toString(response.getEntity());
         } catch (Exception e) {
             throw new BridgeError(e);
         }
-        
-        // If the response threw a 404 error with the command name as the reason,, 
+
+        // If the response threw a 404 error with the command name as the reason,,
         // throw and notify the user of the bad structure.
         if (response.getStatusLine().getStatusCode() == 404) {
             if (response.getStatusLine().getReasonPhrase().equals(command)) {
                 throw new BridgeError("Invalid Structure: '" + request.getStructure() + "' is not a valid structure because '" + command + "' is not a valid Aveksa information command.");
             }
-        } 
-        
+        }
+
         // Check to see if the response code message contains an 'Executing JDBC
         // query failed'  to throw a specifc error for bad query, general unexpected error
         // for anything else that falls under the 500 error code
@@ -250,10 +250,10 @@ public class AveksaAdapter implements BridgeAdapter {
                 throw new BridgeError("An unexpected error was encountered.");
             }
         }
-        
+
         Record record = new Record(null);
         JSONObject jsonOutput = (JSONObject)JSONValue.parse(output);
-        
+
         if (jsonOutput.size() > 1) {
             throw new BridgeError("Multiple results matched an expected single match query");
         } else if (jsonOutput.isEmpty()) {
@@ -272,7 +272,7 @@ public class AveksaAdapter implements BridgeAdapter {
                 }
             }
         }
-        
+
         // Returning the response
         return record;
     }
@@ -281,10 +281,10 @@ public class AveksaAdapter implements BridgeAdapter {
     public RecordList search(BridgeRequest request) throws BridgeError {
         AveksaQualificationParser parser = new AveksaQualificationParser();
         String filterParameters = parser.parse(request.getQuery(),request.getParameters());
-        
+
         String returnColumns = request.getFieldString();
         String command = "find" + request.getStructure();
-        
+
         StringBuilder getUrl = new StringBuilder();
         getUrl.append(this.url.toString());
         getUrl.append("/aveksa/command.submit?cmd=");
@@ -296,17 +296,17 @@ public class AveksaAdapter implements BridgeAdapter {
         }
         // Possibly add sorting and possibly pagination data later on
         getUrl.append("&").append(this.token);
-        
+
 //        // Getting a different httpClient that will work with all SSL Certificates (for use in dev environments)
-//        DefaultHttpClient client;
+//        HttpClient client;
 //        try {
 //            client = getTestingHttpClient();
 //        } catch (Exception e) {
 //            throw new BridgeError(e);
 //        }
-        HttpClient client = new DefaultHttpClient();
+        HttpClient client = HttpClients.createDefault();
         HttpGet get = new HttpGet(getUrl.toString());
-        
+
         String output = "";
         HttpResponse response;
         try {
@@ -322,15 +322,15 @@ public class AveksaAdapter implements BridgeAdapter {
         } catch (Exception e) {
             throw new BridgeError(e);
         }
-        
-        // If the response threw a 404 error with the command name as the reason,, 
+
+        // If the response threw a 404 error with the command name as the reason,,
         // throw and notify the user of the bad structure.
         if (response.getStatusLine().getStatusCode() == 404) {
             if (response.getStatusLine().getReasonPhrase().equals(command)) {
                 throw new BridgeError("Invalid Structure: '" + request.getStructure() + "' is not a valid structure because '" + command + "' is not a valid Aveksa information command.");
             }
-        } 
-        
+        }
+
         // Check to see if the response code message contains an 'Executing JDBC
         // query failed'  to throw a specifc error for bad query, general unexpected error
         // for anything else that falls under the 500 error code
@@ -345,12 +345,12 @@ public class AveksaAdapter implements BridgeAdapter {
                 throw new BridgeError("An unexpected error was encountered.");
             }
         }
-        
+
         JSONObject jsonObj = (JSONObject)JSONValue.parse(output);
         JSONArray structureList = (JSONArray)jsonObj.get(command);
-        
+
         List<String> fields = request.getFields();
-        ArrayList<Record> records = new ArrayList<Record>(); 
+        ArrayList<Record> records = new ArrayList<Record>();
         for (int i = 0; i < structureList.size(); i++) {
             List record = new ArrayList();
             JSONObject structureObj = (JSONObject)JSONValue.parse(structureList.get(i).toString());
@@ -367,34 +367,34 @@ public class AveksaAdapter implements BridgeAdapter {
         metadata.put("offset", String.valueOf("0"));
         metadata.put("size", String.valueOf(records.size()));
         metadata.put("count", metadata.get("size"));
-        
+
         // Returning the response
         return new RecordList(fields, records, metadata);
     }
-    
+
     /*----------------------------------------------------------------------------------------------
      * PRIVATE HELPER METHODS
      *--------------------------------------------------------------------------------------------*/
-    
+
     /**
      * A helper method that authenticates the System Admin user
-     * and returns a token in the form of token={token} which will be 
+     * and returns a token in the form of token={token} which will be
      * appended to the other bridge calls for authentication
      */
     public String authenticate(String url, String username, String password) throws BridgeError {
         String token = "";
         String postUrl = url.toString() + "/aveksa/command.submit?cmd=loginUser";
-        
+
         // Getting a different httpClient that will work with all SSL Certificates (for use in dev environments)
-        DefaultHttpClient client;
-        try {
-            client = getTestingHttpClient();
-        } catch (Exception e) {
-            throw new BridgeError(e);
-        }
-//        HttpClient client = new DefaultHttpClient();
+        // HttpClient client;
+        // try {
+        //     client = getTestingHttpClient();
+        // } catch (Exception e) {
+        //     throw new BridgeError(e);
+        // }
+        HttpClient client = HttpClients.createDefault();
         HttpPost post = new HttpPost(postUrl);
-        
+
         String loginCreds = String.format("<username>%s</username><password>%s</password>",username,password);
         try {
             StringEntity entity = new StringEntity(loginCreds);
@@ -403,26 +403,26 @@ public class AveksaAdapter implements BridgeAdapter {
         } catch (UnsupportedEncodingException e) {
             throw new BridgeError("Unable to add body to HttpPost object",e);
         }
-        
+
         try {
             HttpResponse response = client.execute(post);
             token = EntityUtils.toString(response.getEntity());
         } catch (Exception e) {
             throw new BridgeError(e);
         }
-                
+
         // If the token was returned with a \n char, strip it from the token string
         token = token.replace("\n", "");
-        
+
         logger.debug(token);
-        
+
         return token;
     }
-    
+
     // Both the getTrustingManger and getTestingHttpClient methods SHOULD NOT
     // BE USED IN A PRODUCTION ENVIRONMENT.
-    private DefaultHttpClient getTestingHttpClient() throws NoSuchAlgorithmException, KeyManagementException {
-        DefaultHttpClient httpclient = new DefaultHttpClient();
+    private HttpClient getTestingHttpClient() throws NoSuchAlgorithmException, KeyManagementException {
+        HttpClient httpclient = HttpClients.createDefault();
 
         X509HostnameVerifier hostnameVerifier = org.apache.http.conn.ssl.SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER;
         SSLContext sc = SSLContext.getInstance("SSL");
@@ -432,10 +432,10 @@ public class AveksaAdapter implements BridgeAdapter {
         socketFactory.setHostnameVerifier(hostnameVerifier);
         Scheme sch = new Scheme("https", 443, socketFactory);
         httpclient.getConnectionManager().getSchemeRegistry().register(sch);
-        
+
         return httpclient;
     }
-    
+
     private TrustManager[] getTrustingManager() {
         TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
             @Override
@@ -456,5 +456,5 @@ public class AveksaAdapter implements BridgeAdapter {
         } };
         return trustAllCerts;
     }
-   
+
 }
